@@ -15,6 +15,7 @@ func TestInsert(t *testing.T) {
 		args    args
 		want    *TodoEntity
 		name    string
+		fields  TodoRepository
 		wantErr bool
 	}{
 		{
@@ -25,11 +26,20 @@ func TestInsert(t *testing.T) {
 					Status:      StatusDone,
 				},
 			},
+			fields: TodoRepository{
+				TodoList: make([]TodoEntity, 0),
+				GenerateId: func() string {
+					return "123"
+				},
+				Clock: func() time.Time {
+					return time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC)
+				},
+			},
 			want: &TodoEntity{
 				Entity{
 					Id:        "123",
-					CreatedAt: time.Time{},
-					UpdatedAt: time.Time{},
+					CreatedAt: time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC),
 				},
 				Todo{
 					Description: "Todo Description",
@@ -45,11 +55,20 @@ func TestInsert(t *testing.T) {
 					Description: "No Status",
 				},
 			},
+			fields: TodoRepository{
+				TodoList: make([]TodoEntity, 0),
+				GenerateId: func() string {
+					return "123"
+				},
+				Clock: func() time.Time {
+					return time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC)
+				},
+			},
 			want: &TodoEntity{
 				Entity{
 					Id:        "123",
-					CreatedAt: time.Time{},
-					UpdatedAt: time.Time{},
+					CreatedAt: time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC),
 				},
 				Todo{
 					Description: "No Status",
@@ -63,6 +82,15 @@ func TestInsert(t *testing.T) {
 			args: args{
 				todo: &Todo{},
 			},
+			fields: TodoRepository{
+				TodoList: make([]TodoEntity, 0),
+				GenerateId: func() string {
+					return "123"
+				},
+				Clock: func() time.Time {
+					return time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC)
+				},
+			},
 			want:    nil,
 			wantErr: true,
 		},
@@ -70,12 +98,7 @@ func TestInsert(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			repository := &TodoRepository{
-				TodoList: make([]TodoEntity, 0),
-				GenerateId: func() string {
-					return "123"
-				},
-			}
+			repository := tc.fields
 
 			got, err := repository.Insert(tc.args.todo)
 			if (err != nil) != tc.wantErr {
@@ -85,9 +108,6 @@ func TestInsert(t *testing.T) {
 			if err != nil && tc.wantErr {
 				return
 			}
-
-			got.CreatedAt = time.Time{}
-			got.UpdatedAt = time.Time{}
 
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("TodoRepository.Insert() = %v, want %v", got, tc.want)
@@ -481,7 +501,290 @@ func TestFetchQuery(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	type args struct {
+		id    string
+		model Todo
+	}
+	tests := []struct {
+		want    *TodoEntity
+		args    args
+		name    string
+		fields  TodoRepository
+		wantErr bool
+	}{
+		{
+			name: "Update todo description",
+			args: args{
+				id: "1234",
+				model: Todo{
+					Description: "New Description",
+				},
+			},
+			fields: TodoRepository{
+				TodoList: []TodoEntity{
+					{
+						Entity{
+							Id: "1234",
+						},
+						Todo{
+							Description: "Description 1234",
+							Status:      StatusDone,
+						},
+					},
+					{
+						Entity{
+							Id: "1235",
+						},
+						Todo{
+							Description: "Description 1235",
+							Status:      StatusNotDone,
+						},
+					},
+				},
+				Clock: func() time.Time {
+					return time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC)
+				},
+			},
+			want: &TodoEntity{
+				Entity{
+					Id:        "1234",
+					UpdatedAt: time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC),
+				},
+				Todo{
+					Description: "New Description",
+					Status:      StatusDone,
+				},
+			},
+		},
+		{
+			name: "Update todo status",
+			args: args{
+				id: "1234",
+				model: Todo{
+					Status: StatusNotDone,
+				},
+			},
+			fields: TodoRepository{
+				TodoList: []TodoEntity{
+					{
+						Entity{
+							Id: "1234",
+						},
+						Todo{
+							Description: "Description 1234",
+							Status:      StatusDone,
+						},
+					},
+					{
+						Entity{
+							Id: "1235",
+						},
+						Todo{
+							Description: "Description 1235",
+							Status:      StatusNotDone,
+						},
+					},
+				},
+				Clock: func() time.Time {
+					return time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC)
+				},
+			},
+			want: &TodoEntity{
+				Entity{
+					Id:        "1234",
+					UpdatedAt: time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC),
+				},
+				Todo{
+					Description: "Description 1234",
+					Status:      StatusNotDone,
+				},
+			},
+		},
+		{
+			name: "Update a entity with invalid id results in error",
+			args: args{
+				id:    "12345",
+				model: Todo{},
+			},
+			fields: TodoRepository{
+				TodoList: []TodoEntity{
+					{
+						Entity{
+							Id: "1234",
+						},
+						Todo{
+							Description: "Description 1234",
+							Status:      StatusDone,
+						},
+					},
+					{
+						Entity{
+							Id: "1235",
+						},
+						Todo{
+							Description: "Description 1235",
+							Status:      StatusNotDone,
+						},
+					},
+				},
+				Clock: func() time.Time {
+					return time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC)
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Update a entity with invalid model results in error",
+			args: args{
+				id:    "1234",
+				model: Todo{},
+			},
+			fields: TodoRepository{
+				TodoList: []TodoEntity{
+					{
+						Entity{
+							Id: "1234",
+						},
+						Todo{
+							Description: "Description 1234",
+							Status:      StatusDone,
+						},
+					},
+					{
+						Entity{
+							Id: "1235",
+						},
+						Todo{
+							Description: "Description 1235",
+							Status:      StatusNotDone,
+						},
+					},
+				},
+				Clock: func() time.Time {
+					return time.Date(2024, time.November, 10, 0, 0, 0, 0, time.UTC)
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repository := tc.fields
+
+			got, err := repository.Update(tc.args.id, tc.args.model)
+
+			if (err != nil) != tc.wantErr {
+				t.Errorf("TodoRepository.Update() error %v, wantsErr %v", err, tc.wantErr)
+			}
+
+			if err != nil && tc.wantErr {
+				return
+			}
+
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("TodoRepository.Update() = %v, want %v", got, tc.want)
+			}
+		})
+	}
 }
 
 func TestDelete(t *testing.T) {
+	type args struct {
+		id string
+	}
+	tests := []struct {
+		want    *TodoEntity
+		args    args
+		name    string
+		fields  TodoRepository
+		wantErr bool
+	}{
+		{
+			name: "Delete a todo",
+			args: args{
+				id: "1234",
+			},
+			fields: TodoRepository{
+				TodoList: []TodoEntity{
+					{
+						Entity{
+							Id: "1234",
+						},
+						Todo{
+							Description: "Description 1234",
+							Status:      StatusDone,
+						},
+					},
+					{
+						Entity{
+							Id: "1235",
+						},
+						Todo{
+							Description: "Description 1235",
+							Status:      StatusNotDone,
+						},
+					},
+				},
+			},
+			want: &TodoEntity{
+				Entity{
+					Id: "1234",
+				},
+				Todo{
+					Description: "Description 1234",
+					Status:      StatusDone,
+				},
+			},
+		},
+		{
+			name: "Delete a todo with a invalid id",
+			args: args{
+				id: "12345",
+			},
+			fields: TodoRepository{
+				TodoList: []TodoEntity{
+					{
+						Entity{
+							Id: "1234",
+						},
+						Todo{
+							Description: "Description 1234",
+							Status:      StatusDone,
+						},
+					},
+					{
+						Entity{
+							Id: "1235",
+						},
+						Todo{
+							Description: "Description 1235",
+							Status:      StatusNotDone,
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repository := tc.fields
+
+			got, err := repository.Delete(tc.args.id)
+
+			if (err != nil) != tc.wantErr {
+				t.Errorf("TodoRepository.Delete() error %v, wantsErr %v", err, tc.wantErr)
+			}
+
+			if err != nil && tc.wantErr {
+				return
+			}
+
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("TodoRepository.Delete() = %v, want %v", got, tc.want)
+			}
+		})
+	}
 }

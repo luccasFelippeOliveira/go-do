@@ -35,8 +35,11 @@ type TodoEntity struct {
 
 type GenerateId func() string
 
+type Clock func() time.Time
+
 type TodoRepository struct {
 	GenerateId GenerateId
+	Clock      Clock
 	TodoList   []TodoEntity
 }
 
@@ -55,8 +58,8 @@ func (r *TodoRepository) Insert(todo *Todo) (*TodoEntity, error) {
 	todoEntity := &TodoEntity{
 		Entity{
 			Id:        r.GenerateId(),
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			CreatedAt: r.Clock(),
+			UpdatedAt: r.Clock(),
 		},
 		Todo{
 			Description: todo.Description,
@@ -276,4 +279,57 @@ func (r *TodoRepository) FetchByQuery(query map[string]string) ([]TodoEntity, er
 	}
 
 	return result, nil
+}
+
+func (r *TodoRepository) Update(id string, model Todo) (*TodoEntity, error) {
+	if r.TodoList == nil {
+		return nil, errors.New("repository not initialized")
+	}
+
+	// Verify model consistency.
+	if model.Status == "" && model.Description == "" {
+		return nil, errors.New("At least one field Status or Description must be filled")
+	}
+
+	idx := slices.IndexFunc(r.TodoList, func(e TodoEntity) bool {
+		return e.Id == id
+	})
+
+	if idx < 0 {
+		return nil, fmt.Errorf("Entity with id %v was not found", id)
+	}
+
+	entity := r.TodoList[idx]
+
+	if model.Status != "" {
+		entity.Status = model.Status
+	}
+
+	if model.Description != "" {
+		entity.Description = model.Description
+	}
+
+	entity.UpdatedAt = r.Clock()
+
+	return &entity, nil
+}
+
+func (r *TodoRepository) Delete(id string) (*TodoEntity, error) {
+	if r.TodoList == nil {
+		return nil, errors.New("repository not initialized")
+	}
+
+	idx := slices.IndexFunc(r.TodoList, func(e TodoEntity) bool {
+		return e.Id == id
+	})
+
+	if idx < 0 {
+		return nil, fmt.Errorf("Entity with id %v was not found", id)
+	}
+
+	entity := r.TodoList[idx]
+
+	r.TodoList = slices.Delete(r.TodoList, idx, idx)
+
+	return &entity, nil
 }
